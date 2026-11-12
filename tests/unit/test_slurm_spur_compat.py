@@ -207,7 +207,7 @@ class TestBuildOnComputeBuildArgs:
     context does not set. Without them a Dockerfile that picks its stack from
     MAD_SYSTEM_GPU_ARCHITECTURE builds the wrong one."""
 
-    def _build_line(self, tmp_path, ctx_args, card_args=None, pins_tool=None):
+    def _build_line(self, tmp_path, ctx_args, card_args=None, pins_tool=None, dockercontext=None):
         import os
         from madengine.orchestration.build_orchestrator import BuildOrchestrator
         orch = BuildOrchestrator.__new__(BuildOrchestrator)
@@ -221,6 +221,8 @@ class TestBuildOnComputeBuildArgs:
                  "distributed": {"launcher": "slurm_multi"}, "env_vars": {}}
         if card_args is not None:
             model["docker_build_arg"] = card_args
+        if dockercontext is not None:
+            model["dockercontext"] = dockercontext
         df = tmp_path / "docker" / "card.ubuntu.amd.Dockerfile"
         df.parent.mkdir(parents=True, exist_ok=True); df.write_text("FROM scratch\n")
         if pins_tool:
@@ -261,6 +263,16 @@ class TestBuildOnComputeBuildArgs:
     def test_build_output_is_on_stdout(self, tmp_path):
         # Spur's srun dropped the step's stderr, which is where docker build writes.
         assert self._build_line(tmp_path, None).endswith("2>&1")
+
+    def test_build_context_defaults_to_docker_dir(self, tmp_path):
+        line = self._build_line(tmp_path, None)
+        assert line.endswith("-f docker/card.ubuntu.amd.Dockerfile ./docker 2>&1")
+
+    def test_card_dockercontext_is_the_build_context(self, tmp_path):
+        """The pin-set Dockerfiles COPY docker/pins/ from the repository root, so their
+        cards set dockercontext "."; with ./docker the build fails at that COPY."""
+        line = self._build_line(tmp_path, None, dockercontext=".")
+        assert line.endswith("-f docker/card.ubuntu.amd.Dockerfile . 2>&1")
 
     PINS_TOOL = (
         "import json, sys\n"

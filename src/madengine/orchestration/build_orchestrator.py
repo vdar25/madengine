@@ -1197,6 +1197,7 @@ class BuildOrchestrator:
                     "local_image_name": local_image_name,
                     "registry_image_name": registry_image_name,
                     "build_arg_flags": build_arg_flags,
+                    "docker_context": pin_builder.get_context_path(model),
                 }
             )
         self.rich_console.print("")
@@ -1219,13 +1220,14 @@ class BuildOrchestrator:
             local_q = shlex.quote(str(pmd["local_image_name"]))
             reg_img_q = shlex.quote(str(pmd["registry_image_name"]))
             df_q = shlex.quote(str(pmd["dockerfile_path"]))
+            ctx_q = shlex.quote(str(pmd["docker_context"]))
             model_q = shlex.quote(str(pmd["model_name"]))
             build_steps += f"""
 # --- Model {idx}/{len(per_model_data)} ---
 echo "=== Building" {model_q} "==="
 echo "Dockerfile:" {df_q}
 echo "Local image:" {local_q}
-docker build --network=host -t {local_q} {no_cache_flag} {pmd["build_arg_flags"]} --pull -f {df_q} ./docker 2>&1
+docker build --network=host -t {local_q} {no_cache_flag} {pmd["build_arg_flags"]} --pull -f {df_q} {ctx_q} 2>&1
 BUILD_RC=$?
 if [ $BUILD_RC -ne 0 ]; then
     echo "❌ Docker build FAILED for" {model_q} "(exit $BUILD_RC)"
